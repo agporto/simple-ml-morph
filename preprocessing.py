@@ -20,9 +20,15 @@ if args['csv_file'] is not None:
     dict_csv=utils.read_csv(args['csv_file'])
     utils.generate_dlib_xml(dict_csv,file_sizes['train'],folder='train',out_file='train.xml')
     utils.generate_dlib_xml(dict_csv,file_sizes['test'],folder='test',out_file='test.xml')
+    utils.dlib_xml_to_tps('train.xml')
+    utils.dlib_xml_to_tps('test.xml')
+    
+    
     
 if args['tps_file'] is not None:
     dict_tps=utils.read_tps(args['tps_file'])
     utils.generate_dlib_xml(dict_tps,file_sizes['train'],folder='train',out_file='train.xml')
     utils.generate_dlib_xml(dict_tps,file_sizes['test'],folder='test',out_file='test.xml')
+    utils.dlib_xml_to_tps('train.xml')
+    utils.dlib_xml_to_tps('test.xml')
   
