@@ -18,12 +18,13 @@ import dlib
 
 #Tools for using previously annotated datasets
 
-def read_csv(input):
+def read_csv(input,scalar):
     '''
     This function reads a XY coordinate file (following the tpsDig coordinate system) containing several specimens(rows) 
     and any number of landmarks. It is generally assumed here that the file contains a header and no other 
     columns other than an id column (first column) and the X0 Y0 ...Xn Yn coordinates for n landmarks.It is also 
     assumed that the file contains no missing values.
+    This function will scale landmarks to match the new image resolution set by the user.
         
     Parameters:
         input (str): The XY coordinate file (csv format)
@@ -42,15 +43,18 @@ def read_csv(input):
             coord_vec=ln.split(',')[1:]
             coords_mat = np.reshape(coord_vec, (int(len(coord_vec)/2),2))
             coords = np.array(coords_mat, dtype=float)
+            if scalar is not float(1):
+                coords = coords * scalar
             coords_array.append(coords)
     return {'im': im, 'coords': coords_array}
 
-def read_tps(input):
+def read_tps(input,scalar):
     '''
     This function reads a tps coordinate file containing several specimens and an arbitrary number of landmarks. 
     A single image file can contain as many specimens as wanted.
-    It is generally assumed here that all specimens were landmarked in the same order.It is also  assumed that 
+    It is generally assumed here that all specimens were landmarked in the same order. It is also assumed that 
     the file contains no missing values.
+    This function will scale landmarks to match the new image resolution set by the user.
     
     Parameters:
         input (str): The tps coordinate file
@@ -71,14 +75,18 @@ def read_tps(input):
             coords_mat = []
             for j in range(i + 1, i + 1 + lm_num):
                 coords_mat.append(tps[j].split(' '))
-            coords_mat = np.array(coords_mat, dtype=float)
+            coords_mat = np.array(coords_mat, dtype=float) 
+            if scalar is not float(1):
+                coords_mat = coords_mat * scalar
             coords_array.append(coords_mat)
 
         if ln.startswith("IMAGE"):
             im.append(ln.split('=')[1])
 
         if ln.startswith("SCALE"):
-            sc.append(ln.split('=')[1])
+            scl = ln.split('=')[1]
+            scl = str(int(float(scl) * scalar))
+            sc.append(scl)
     return {'lm': lm, 'im': im, 'scl': sc, 'coords': coords_array}
 
 
@@ -167,7 +175,7 @@ def generate_dlib_xml(images,sizes,folder='train',out_file='output.xml'):
         images (dict): dictionary output by read_tps or read_csv functions 
         sizes (dict)= dictionary of image file sizes output by the split_train_test function
         folder(str)= name of the folder containing the images 
-        
+        scalar(float)= scalar to change landmark resolution
         
     Returns:
         None (file written to disk)
@@ -202,7 +210,7 @@ def generate_dlib_xml(images,sizes,folder='train',out_file='output.xml'):
 #Directory preparation tools
 
 
-def split_train_test(input_dir):
+def split_train_test(input_dir,scalar,method):
     '''
     Splits an image directory into 'train' and 'test' directories. The original image directory is preserved. 
     When creating the new directories, this function converts all image files to 'jpg'. The function returns
@@ -217,6 +225,16 @@ def split_train_test(input_dir):
     # Listing the filenames.Folders must contain only image files (extension can vary).Hidden files are ignored
     filenames = os.listdir(input_dir)
     filenames = [os.path.join(input_dir, f) for f in filenames if not f.startswith('.')]
+
+    # Dictionary to hold resampling methods for cv2.resize()
+    methods_dict = {
+        'INTER_NEAREST' : cv2.INTER_NEAREST,
+        'INTER_LINEAR' : cv2.INTER_LINEAR,
+        'INTER_AREA' : cv2.INTER_AREA,
+        'INTER_CUBIC' : cv2.INTER_CUBIC,
+        'INTER_LANCZOS4' : cv2.INTER_LANCZOS4
+    }
+    method = methods_dict[method]
 
     # Splitting the images into 'train' and 'test' directories (80/20 split)
     random.seed(845)
@@ -241,13 +259,14 @@ def split_train_test(input_dir):
         for filename in filenames[split]:
             basename=os.path.basename(filename)
             name=os.path.splitext(basename)[0] + '.jpg'
-            sizes[split][name]=image_prep(filename,name,split)
+            sizes[split][name]=image_prep(filename,name,split,scalar,method)
     return sizes
 
-def image_prep(file, name, dir_path):
+def image_prep(file, name, dir_path, scalar, method):
     '''
-    Internal function used by the split_train_test function. Reads the original image files and, while 
-    converting them to jpg, gathers information on the original image dimensions. 
+    Internal function used by the split_train_test function. Reads the original image files,
+    adjusts the resolution if user defined, and while converting
+    them to jpg, gathers information on the original image dimensions. 
     
     Parameters:
         file(str)=original path to the image file
@@ -258,9 +277,15 @@ def image_prep(file, name, dir_path):
         file_sz(array): original image dimensions
     '''
     img = cv2.imread(file)
+
     if img is None:
         print('File {} was ignored'.format(file))
     else:
+        if scalar != float(1):
+            width = int(img.shape[1] * scalar)
+            height = int(img.shape[0] * scalar)
+            dim = (width, height)
+            img = cv2.resize(img, dim, interpolation=method)
         file_sz= [img.shape[0],img.shape[1]]
         cv2.imwrite(os.path.join(dir_path,name), img)
     return file_sz
@@ -413,3 +438,4 @@ def dlib_xml_to_tps(xml_file: str):
                         wr.writerows([data])
                     wr.writerows([['IMAGE='+ image.attrib['file']],['ID='+ str(int(id))]])
                     id += 1
+
