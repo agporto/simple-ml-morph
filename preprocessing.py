@@ -8,7 +8,7 @@ ap.add_argument('-i','--input-dir', type=str, default='images', help="input dire
 ap.add_argument('-c','--csv-file', type=str, default=None, help="(optional) XY coordinate file in csv format", metavar='')
 ap.add_argument('-t','--tps-file', type=str, default=None, help="(optional) tps coordinate file", metavar='')
 ap.add_argument('-r','--resolution', type=float, default=float(1), help="(optional) scalar to change image and landmark resolution", metavar='')
-ap.add_argument('-m','--method', type=str, default='INTER_LINEAR', help="(optional) interpolation method used to change image resolution. See cv2.resize() for options", metavar='')
+ap.add_argument('-m','--method', type=str, default='INTER_LINEAR', help="(optional) interpolation method used to change image resolution. Possible values: 'INTER_NEAREST', 'INTER_AREA' (default), 'INTER_LINEAR', 'INTER_CUBIC', 'INTER_LANCZOS4'. See cv2.resize() for details", metavar='')
 
     
 args = vars(ap.parse_args())
