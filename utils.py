@@ -180,8 +180,9 @@ def generate_dlib_xml(images,sizes,folder='train',out_file='output.xml'):
     root.append(images_e)
 
     for i in range(0,len(images['im'])):
-        name=os.path.splitext(images['im'][i])[0]+'.jpg'
+        name = os.path.basename(os.path.splitext(images['im'][i])[0]) + '.jpg' #fix to allow for flexible .tps file placement
         path=os.path.join(folder,name)
+        path = os.path.abspath(path) #shift to absolute path to avoid dlib file handling issues
         if os.path.isfile(path) is True: 
             present_tags=[]
             for img in images_e.findall('image'):
@@ -202,7 +203,7 @@ def generate_dlib_xml(images,sizes,folder='train',out_file='output.xml'):
 #Directory preparation tools
 
 
-def split_train_test(input_dir):
+def split_train_test(input_dir, output_dir = "data"): 
     '''
     Splits an image directory into 'train' and 'test' directories. The original image directory is preserved. 
     When creating the new directories, this function converts all image files to 'jpg'. The function returns
@@ -210,6 +211,7 @@ def split_train_test(input_dir):
     
     Parameters:
         input_dir(str)=original image directory
+        output_dir(str)= name of the output directory where the 'train' and 'test' directories will be created. The default is 'data'.
         
     Returns:
         sizes (dict): dictionary containing the image dimensions in the 'train' and 'test' directories.
@@ -231,17 +233,18 @@ def split_train_test(input_dir):
     sizes={}
     for split in ['train','test']:
         sizes[split]={}
-        if not os.path.exists(split):
-            os.mkdir(split)
+        split_dir = os.path.join(output_dir, split)
+        if not os.path.exists(split_dir):
+            os.mkdir(split_dir)
         else:
-            print("Warning: the folder {} already exists. It's being replaced".format(split))
-            shutil.rmtree(split)
-            os.mkdir(split)
+            print("Warning: the folder {} already exists. It's being replaced".format(split_dir))
+            shutil.rmtree(split_dir)
+            os.mkdir(split_dir)
 
         for filename in filenames[split]:
             basename=os.path.basename(filename)
             name=os.path.splitext(basename)[0] + '.jpg'
-            sizes[split][name]=image_prep(filename,name,split)
+            sizes[split][name]=image_prep(filename,name,split_dir)
     return sizes
 
 def image_prep(file, name, dir_path):
@@ -259,7 +262,9 @@ def image_prep(file, name, dir_path):
     '''
     img = cv2.imread(file)
     if img is None:
-        print('File {} was ignored'.format(file))
+        print('File {} was ignored, returning None'.format(file))
+    #additions to file handling
+        file_sz = None
     else:
         file_sz= [img.shape[0],img.shape[1]]
         cv2.imwrite(os.path.join(dir_path,name), img)
